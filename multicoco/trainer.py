@@ -14,7 +14,11 @@ from .collator import MultimodalCoconutCollator
 class MultimodalCoconutTrainer:
     def __init__(self, config: SimpleNamespace) -> None:
         self.config = config
-        self.device = torch.device(getattr(self.config.hardware, "device", "cuda" if torch.cuda.is_available() else "cpu"))
+        device_str = (
+            getattr(getattr(self.config, "hardware", SimpleNamespace(device=None)), "device", None)
+            or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        self.device = torch.device(device_str)
         self._setup_model_and_data()
 
     def _setup_model_and_data(self) -> None:

@@ -1,5 +1,7 @@
 import argparse
+import os
 import yaml
+from copy import deepcopy
 from types import SimpleNamespace
 
 from multicoco.trainer import MultimodalCoconutTrainer
@@ -15,9 +17,33 @@ def _dict_to_ns(obj):
     return obj
 
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    out = deepcopy(base)
+    for k, v in override.items():
+        if k == "base_config":
+            continue
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
 def load_config(config_path: str) -> SimpleNamespace:
     with open(config_path, "r") as f:
-        data = yaml.safe_load(f)
+        data = yaml.safe_load(f) or {}
+
+    # Handle base_config chaining
+    if isinstance(data, dict) and "base_config" in data and data["base_config"]:
+        base_path = data["base_config"]
+        # Resolve relative to the current config file directory
+        if not os.path.isabs(base_path):
+            base_path = os.path.join(os.path.dirname(config_path), base_path)
+        base_ns = load_config(base_path)
+        base_dict = base_ns.__dict__
+        merged = _deep_merge(base_dict, data)
+        return _dict_to_ns(merged)
+
     return _dict_to_ns(data)
 
 
