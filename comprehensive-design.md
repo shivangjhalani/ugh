@@ -1819,10 +1819,38 @@ def _dict_to_ns(obj):
         return [ _dict_to_ns(v) for v in obj ]
     return obj
 
+def _deep_merge(base, override):
+    out = dict(base)
+    for k, v in override.items():
+        if k == 'base_config':
+            continue
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
 def load_config(config_path):
-    """Load configuration from YAML file into a nested namespace"""
+    """Load configuration with optional base_config deep-merge"""
     with open(config_path, 'r') as f:
-        data = yaml.safe_load(f)
+        data = yaml.safe_load(f) or {}
+
+    if isinstance(data, dict) and data.get('base_config'):
+        base_ref = data['base_config']
+        candidates = [
+            os.path.join(os.path.dirname(os.path.abspath(config_path)), base_ref),
+            os.path.abspath(base_ref),
+        ]
+        base_loaded = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                base_loaded = load_config(cand)
+                break
+        if base_loaded is None:
+            raise FileNotFoundError(f'Could not resolve base_config path from {base_ref}; tried: {candidates}')
+        merged = _deep_merge(vars(base_loaded), data)
+        return _dict_to_ns(merged)
+
     return _dict_to_ns(data)
 
 def main():
@@ -2384,8 +2412,7 @@ class MultimodalCoconutTrainer:
 
         dataset = load_dataset(
             self.config.dataset.hf_dataset_id,
-            split=split,
-            trust_remote_code=True
+            split=split
         )
 
         return dataset

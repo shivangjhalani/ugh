@@ -83,8 +83,8 @@ class MultimodalCoconutTrainer:
     def _build_loaders(self, stage: int):
         from datasets import load_dataset
 
-        train_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.train_split, trust_remote_code=True)
-        val_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.val_split, trust_remote_code=True)
+        train_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.train_split)
+        val_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.val_split)
 
         train_ds.set_transform(lambda s: self.data_processor.process_sample(s, stage))
         val_ds.set_transform(lambda s: self.data_processor.process_sample(s, stage))
