@@ -23,8 +23,14 @@ class MultimodalCoconutTrainer:
         self._setup_model_and_data()
 
     def _setup_model_and_data(self) -> None:
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.name, trust_remote_code=True)
-        self.image_processor = AutoImageProcessor.from_pretrained(self.config.model.name, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config.model.name, trust_remote_code=True, use_fast=True
+        )
+        self.image_processor = AutoImageProcessor.from_pretrained(
+            self.config.model.name, trust_remote_code=True, use_fast=True
+        )
+        if getattr(self.config, "debug", False):
+            print("[MultiCoCo] Loading base InternVL model ...")
 
         base_model = AutoModel.from_pretrained(
             self.config.model.name,
@@ -33,6 +39,9 @@ class MultimodalCoconutTrainer:
             trust_remote_code=getattr(self.config.model, "trust_remote_code", True),
         )
         base_model.eval()
+
+        if getattr(self.config, "debug", False):
+            print("[MultiCoCo] Base model loaded.")
 
         # Add special tokens
         coconut_tokens = ["<|start-latent|>", "<|end-latent|>", "<|latent|>"]
@@ -84,8 +93,23 @@ class MultimodalCoconutTrainer:
     def _build_loaders(self, stage: int):
         from datasets import load_dataset
 
+        if getattr(self.config, "debug", False):
+            print(f"[MultiCoCo] Loading datasets: {self.config.dataset.hf_dataset_id}")
+
         train_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.train_split)
         val_ds = load_dataset(self.config.dataset.hf_dataset_id, split=self.config.dataset.val_split)
+
+        if getattr(self.config, "debug", False):
+            # Take a small subset for quick smoke runs
+            try:
+                train_ds = train_ds.select(range(min(64, len(train_ds))))
+                val_ds = val_ds.select(range(min(64, len(val_ds))))
+                print(f"[MultiCoCo] Using debug subset: train={len(train_ds)}, val={len(val_ds)}")
+            except Exception:
+                pass
+
+        if getattr(self.config, "debug", False):
+            print(f"[MultiCoCo] Datasets loaded: train={len(train_ds)}, val={len(val_ds)}")
 
         train_ds.set_transform(lambda s: self.data_processor.process_sample(s, stage))
         val_ds.set_transform(lambda s: self.data_processor.process_sample(s, stage))

@@ -2049,8 +2049,8 @@ class MultimodalCoconutTrainer:
         from tqdm import tqdm
         import torch
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.name)
-        self.image_processor = AutoImageProcessor.from_pretrained(self.config.model.name)
+         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.name, use_fast=True)
+         self.image_processor = AutoImageProcessor.from_pretrained(self.config.model.name, use_fast=True)
 
         # Use correct InternVL3 model loading pattern with config variables
         base_model = AutoModel.from_pretrained(
