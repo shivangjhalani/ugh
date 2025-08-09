@@ -1,0 +1,43 @@
+pytest
+numpy
+pyyaml
+
+accelerate
+
+# Core ML frameworks
+torch
+# torchvision>=0.19.0
+# torchaudio>=2.4.0
+transformers[torch]
+
+# Computer Vision & Image Processing
+pillow
+
+# Data Science & Numerical Computing
+# numpy>=1.24.0
+datasets
+
+# Progress bars and utilities
+# tqdm
+einops
+
+# Vision models
+timm
+
+# Logging and experiment tracking
+wandb
+
+# Development and testing
+# pytest
+# pytest-cov
+
+# Configuration and file handling
+# PyYAML>=6.0
+
+huggingface_hub
+
+decord
+
+# matplotlib
+# seaborn
+# scikit-learn

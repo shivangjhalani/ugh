@@ -1,0 +1,48 @@
+project: multicoco
+name: multicoco-aokvqa-internvl3-1b
+output_dir: ./outputs
+seed: 42
+
+model:
+  name: OpenGVLab/InternVL3-1B-Pretrained
+  torch_dtype: bfloat16
+  low_cpu_mem_usage: true
+  trust_remote_code: true
+
+coconut:
+  c_thought: 2
+  epochs_per_stage: 1
+  max_latent_stage: 1
+  pad_latent_to_max: true
+  reset_optimizer: true
+
+training:
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  num_epochs: 1
+  learning_rate: 5e-5
+  weight_decay: 0.0
+  warmup_steps: 0
+  max_grad_norm: 1.0
+  bf16: false
+  use_gradient_checkpointing: false
+  save_only_improve: false
+  num_workers: 0
+  optimizer: adamw
+  scheduler: none
+  log_wandb: false
+  save_every_epoch: false
+  save_best_by: val_accuracy
+
+data:
+  max_sequence_length: 1024
+  image_size: 448
+  max_num_tiles: 4
+  num_image_token: 256
+  padding_side: right
+
+hardware:
+  device: cuda
+  world_size: 1
+  distributed: false
+

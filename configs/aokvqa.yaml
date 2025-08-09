@@ -1,0 +1,20 @@
+base_config: configs/base.yaml
+
+dataset:
+  name: aokvqa
+  hf_dataset_id: HuggingFaceM4/A-OKVQA
+  train_split: train
+  val_split: validation
+  test_split: test
+
+policy:
+  multiple_choice_only: true
+  skip_without_rationales: true
+  single_image_only: true
+
+evaluation:
+  metrics: [accuracy]
+  generate_explanations: false
+  max_new_tokens: 64
+  decoding: greedy
+
