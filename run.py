@@ -67,6 +67,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default=None, help="Checkpoint path")
     parser.add_argument("--output_dir", type=str, default=None, help="Override output dir")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--cpu", action="store_true", help="Force CPU for low-RAM environments")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -78,6 +79,11 @@ def main():
 
     setup_logging(config)
     set_seed(getattr(config, "seed", 42))
+
+    if args.cpu:
+        if not hasattr(config, "hardware"):
+            config.hardware = SimpleNamespace()
+        config.hardware.device = "cpu"
 
     if args.mode == "train":
         trainer = MultimodalCoconutTrainer(config)

@@ -70,7 +70,11 @@ class MultimodalCoconutTrainer:
 
         # Resize embeddings on LM only when new tokens were added
         if num_added > 0:
-            self.model.language_model.resize_token_embeddings(len(self.tokenizer))
+            # Avoid expensive mean/cov init that spikes RAM
+            try:
+                self.model.language_model.resize_token_embeddings(len(self.tokenizer), mean_resizing=False)
+            except TypeError:
+                self.model.language_model.resize_token_embeddings(len(self.tokenizer))
             inp = self.model.language_model.get_input_embeddings().weight.data
             avg_vec = inp[:-num_added].mean(dim=0, keepdim=True)
             inp[-num_added:] = avg_vec

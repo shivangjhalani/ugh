@@ -25,7 +25,8 @@ class MultimodalProcessor:
         images = dynamic_preprocess(
             image, image_size=input_size, use_thumbnail=True, max_num=max_num
         )
-        transform = build_transform(input_size=input_size)
+        # Build transform without extraneous allocations
+        transform = build_transform(is_train=False, input_size=input_size)
         pixel_values = [transform(tile) for tile in images]
         return torch.stack(pixel_values)
 
