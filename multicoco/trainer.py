@@ -9,6 +9,7 @@ from tqdm import tqdm
 from .model import MultimodalCoconut
 from .dataset import MultimodalProcessor
 from .collator import MultimodalCoconutCollator
+from .utils import set_seed
 
 
 class MultimodalCoconutTrainer:
@@ -99,6 +100,7 @@ class MultimodalCoconutTrainer:
         return train_loader, val_loader
 
     def train_all_stages(self) -> None:
+        set_seed(getattr(self.config, "seed", 42))
         best_acc = 0.0
         for stage in range(self.config.coconut.max_latent_stage + 1):
             train_loader, val_loader = self._build_loaders(stage)
@@ -133,16 +135,24 @@ class MultimodalCoconutTrainer:
         correct = 0
         for batch in tqdm(val_loader, desc="Eval"):
             batch = {k: (v.to(self.device) if isinstance(v, torch.Tensor) else v) for k, v in batch.items()}
-            # Minimal evaluation: next-token logits proxy (placeholder)
-            out = self.model(
+            out = self.model.generate(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],
-                labels=batch["labels"],
                 pixel_values=batch["pixel_values"],
-                image_flags=batch["image_flags"],
+                max_new_tokens=getattr(getattr(self.config, "evaluation", SimpleNamespace()), "max_new_tokens", 32),
             )
-            # Placeholder accuracy increment to keep pipeline functional
-            total += 1
-            correct += 0
+            seqs = out["sequences"]
+            # Very rough: check if the last char contains a valid A-D
+            for i in range(seqs.shape[0]):
+                text = self.tokenizer.decode(seqs[i], skip_special_tokens=True)
+                ans = -1
+                for ch in reversed(text):
+                    if ch in "ABCD":
+                        ans = ord(ch) - ord("A")
+                        break
+                gt = batch.get("answer_idx", torch.full((seqs.shape[0],), -1, device=seqs.device))
+                if ans >= 0 and int(gt[i].item()) == ans:
+                    correct += 1
+                total += 1
         return (correct / total) if total else 0.0
 

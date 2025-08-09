@@ -188,3 +188,72 @@ class MultimodalCoconut(nn.Module):
         self.gen_forward_cnt += max_n_latents + 1
         return {"loss": final_outputs.loss, "logits": final_outputs.logits, "inputs_embeds": inputs_embeds}
 
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.LongTensor,
+        attention_mask: torch.LongTensor,
+        pixel_values: Optional[torch.FloatTensor] = None,
+        max_new_tokens: int = 64,
+        do_sample: bool = False,
+    ) -> Dict[str, torch.Tensor]:
+        # Prepare embeddings and IMG_CONTEXT replacement like forward
+        input_embeds = self.language_model.get_input_embeddings()(input_ids).clone()
+        if pixel_values is not None:
+            vit_embeds = self.extract_feature(pixel_values)
+            if vit_embeds is not None:
+                B, N, C = input_embeds.shape
+                flat_ids = input_ids.view(B * N)
+                flat_embeds = input_embeds.view(B * N, C)
+                selected = flat_ids == self.img_context_token_id
+                try:
+                    flat_embeds[selected] = flat_embeds[selected] * 0.0 + vit_embeds.reshape(-1, C)
+                except Exception:
+                    vit_flat = vit_embeds.reshape(-1, C)
+                    n_token = selected.sum()
+                    flat_embeds[selected] = flat_embeds[selected] * 0.0 + vit_flat[:n_token]
+                input_embeds = flat_embeds.view(B, N, C)
+
+        # Position ids
+        B, S = input_ids.shape
+        position_ids = torch.arange(0, S, device=input_ids.device).long().unsqueeze(0).expand(B, -1)
+
+        # Initial forward to get cache
+        outputs = self.language_model(
+            inputs_embeds=input_embeds,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            output_hidden_states=True,
+            use_cache=True,
+        )
+        past_key_values = outputs.past_key_values
+        sequences = input_ids.clone()
+
+        for _ in range(max_new_tokens):
+            logits = outputs.logits[:, -1, :]
+            if do_sample:
+                probs = torch.softmax(logits, dim=-1)
+                next_tokens = torch.multinomial(probs, num_samples=1).squeeze(-1)
+            else:
+                next_tokens = torch.argmax(logits, dim=-1)
+
+            sequences = torch.cat([sequences, next_tokens.unsqueeze(1)], dim=1)
+
+            # Build next-step embeddings (simple: token embedding)
+            token_embeds = self.language_model.get_input_embeddings()(next_tokens)
+            # Update masks and pos ids
+            attention_mask = torch.cat([attention_mask, torch.ones(B, 1, device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+            position_ids = torch.cat([position_ids, position_ids[:, -1:] + 1], dim=1)
+
+            outputs = self.language_model(
+                inputs_embeds=token_embeds.unsqueeze(1),
+                attention_mask=attention_mask,
+                position_ids=position_ids[:, -1:],
+                past_key_values=past_key_values,
+                output_hidden_states=True,
+                use_cache=True,
+            )
+            past_key_values = outputs.past_key_values
+
+        return {"sequences": sequences}
+

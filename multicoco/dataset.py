@@ -68,9 +68,11 @@ class MultimodalProcessor:
             reasoning_steps, stage, has_visual_context=True
         )
 
-        if "correct_choice_idx" in sample:
+        answer_idx = None
+        if "correct_choice_idx" in sample and sample["correct_choice_idx"] is not None:
             idx = int(sample["correct_choice_idx"]) if sample["correct_choice_idx"] is not None else 0
             idx = max(0, min(3, idx))
+            answer_idx = idx
             answer_text = f"The answer is {chr(65+idx)}."
         else:
             answer_text = "The answer is unknown"
@@ -99,5 +101,6 @@ class MultimodalProcessor:
             "pixel_values": pixel_values,
             "image_flags": torch.tensor([1] * num_patches, dtype=torch.long),
             "choices": sample.get("choices", None),
+            "answer_idx": torch.tensor(answer_idx if answer_idx is not None else -1, dtype=torch.long),
         }
 
