@@ -35,11 +35,24 @@ def load_config(config_path: str) -> SimpleNamespace:
 
     # Handle base_config chaining
     if isinstance(data, dict) and "base_config" in data and data["base_config"]:
-        base_path = data["base_config"]
-        # Resolve relative to the current config file directory
-        if not os.path.isabs(base_path):
-            base_path = os.path.join(os.path.dirname(config_path), base_path)
-        base_ns = load_config(base_path)
+        base_ref = data["base_config"]
+        candidates = []
+        if os.path.isabs(base_ref):
+            candidates = [base_ref]
+        else:
+            cfg_dir = os.path.dirname(os.path.abspath(config_path))
+            candidates = [
+                os.path.join(cfg_dir, base_ref),  # relative to this config file
+                os.path.abspath(base_ref),        # as-given relative to cwd
+            ]
+
+        base_ns = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                base_ns = load_config(cand)
+                break
+        if base_ns is None:
+            raise FileNotFoundError(f"Could not resolve base_config path from {base_ref}; tried: {candidates}")
         base_dict = base_ns.__dict__
         merged = _deep_merge(base_dict, data)
         return _dict_to_ns(merged)
