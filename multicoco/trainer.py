@@ -115,12 +115,13 @@ class MultimodalCoconutTrainer:
         val_ds.set_transform(lambda s: self.data_processor.process_sample(s, stage))
 
         collator = MultimodalCoconutCollator(self.tokenizer, self.tokenizer.convert_tokens_to_ids("<|latent|>"))
-        train_loader = DataLoader(
-            train_ds, batch_size=self.config.training.batch_size, shuffle=True, collate_fn=collator, num_workers=self.config.training.num_workers
-        )
-        val_loader = DataLoader(
-            val_ds, batch_size=self.config.training.batch_size, shuffle=False, collate_fn=collator, num_workers=self.config.training.num_workers
-        )
+        bs = self.config.training.batch_size
+        nw = self.config.training.num_workers
+        if getattr(self.config, "debug", False):
+            bs = max(1, min(1, bs))
+            nw = 0
+        train_loader = DataLoader(train_ds, batch_size=bs, shuffle=True, collate_fn=collator, num_workers=nw)
+        val_loader = DataLoader(val_ds, batch_size=bs, shuffle=False, collate_fn=collator, num_workers=nw)
         return train_loader, val_loader
 
     def train_all_stages(self) -> None:
@@ -144,7 +145,13 @@ class MultimodalCoconutTrainer:
             progress = tqdm(train_loader, desc=f"Stage {stage}")
             for step, batch in enumerate(progress):
                 batch = {k: (v.to(self.device) if isinstance(v, torch.Tensor) else v) for k, v in batch.items()}
-                out = self.model(**batch)
+                try:
+                    out = self.model(**batch)
+                except RuntimeError as e:
+                    if "out of memory" in str(e).lower():
+                        torch.cuda.empty_cache()
+                        continue
+                    raise
                 loss = out["loss"] / self.config.training.gradient_accumulation_steps
                 loss.backward()
                 if (step + 1) % self.config.training.gradient_accumulation_steps == 0:

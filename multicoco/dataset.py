@@ -51,7 +51,10 @@ class MultimodalProcessor:
 
     def process_sample(self, sample: Dict[str, Any], stage: int = 0) -> Dict[str, torch.Tensor]:
         image = sample["image"].convert("RGB")
-        pixel_values = self.load_image_with_dynamic_tiling(image, input_size=448, max_num=8)
+        max_tiles = getattr(getattr(self.config, "data", object()), "max_num_tiles", 4)
+        if getattr(self.config, "debug", False):
+            max_tiles = min(2, max_tiles)
+        pixel_values = self.load_image_with_dynamic_tiling(image, input_size=448, max_num=max_tiles)
         num_patches = pixel_values.shape[0]
 
         choices_formatted = "\n".join(
